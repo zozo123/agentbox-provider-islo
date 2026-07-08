@@ -27,7 +27,8 @@
   },
   "homepage": "https://github.com/zozo123/agentbox-provider-islo#readme",
   "bugs": {
-    "url": "https://github.com/zozo123/agentbox-provider-islo/issues"
+    "url": "https://github.com/zozo123/agentbox-provider-islo/issues",
+    "email": "support@incredibuild.com"
   },
   "engines": {
     "node": ">=20.10"

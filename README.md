@@ -72,6 +72,12 @@ npm run typecheck
 npm run build
 ```
 
+## Support
+
+Found a bug or have a question? Open an issue at
+[github.com/zozo123/agentbox-provider-islo/issues](https://github.com/zozo123/agentbox-provider-islo/issues)
+or email **support@incredibuild.com**.
+
 ## License
 
 [MIT](./LICENSE)
