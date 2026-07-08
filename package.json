@@ -1,0 +1,55 @@
+{
+  "name": "agentbox-provider-islo",
+  "version": "0.1.0",
+  "description": "islo.dev sandbox provider plugin for AgentBox — `agentbox create --provider islo` on islo microVMs, built on @madarco/agentbox-provider-sdk + @islo-labs/sdk.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js"
+    }
+  },
+  "agentbox": {
+    "providerApiVersion": 1
+  },
+  "keywords": [
+    "agentbox",
+    "agentbox-provider",
+    "islo",
+    "sandbox",
+    "microvm"
+  ],
+  "license": "MIT",
+  "author": "Yossi Eliaz",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zozo123/agentbox-provider-islo.git"
+  },
+  "homepage": "https://github.com/zozo123/agentbox-provider-islo#readme",
+  "bugs": {
+    "url": "https://github.com/zozo123/agentbox-provider-islo/issues"
+  },
+  "engines": {
+    "node": ">=20.10"
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --target node20 --no-splitting",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist .turbo",
+    "prepare": "npm run build"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "dependencies": {
+    "@islo-labs/sdk": "^0.0.28",
+    "@madarco/agentbox-provider-sdk": "^1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.1",
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.2"
+  }
+}
