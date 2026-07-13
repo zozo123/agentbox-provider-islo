@@ -48,28 +48,54 @@ JWT, refreshed transparently. Optional overrides: `ISLO_BASE_URL` (control plane
 | provision / get / list | `sandboxes.createSandbox` / `getSandbox` / `listSandboxes` (keyed by name) |
 | start / stop / pause / resume | `resumeSandbox` / `stopSandbox` / `pauseSandbox` / `resumeSandbox` (waits for `running`) |
 | destroy | `deleteSandbox` (idempotent on 404) |
-| exec | `execInSandbox` + poll `getExecResult` (two-step async; only the start is retried) |
+| exec | `execInSandbox` + streamed completion sentinel (handles detached daemons without re-running commands) |
 | upload / download / list files | compute `…/files` endpoint (multipart upload) + `ls -Ap` for listing |
-| preview URL | `shares.createShare` (public HTTPS, reused per port) |
+| preview URL | `shares.createShare` (public HTTPS, reused per port and browser-safe) |
 
 Verified end-to-end against the live islo API: provision, exec (stdout + exit codes), file
 upload/download round-trip, `listFiles`, `previewUrl`, `pause`→`resume`, `list`, and `destroy`.
 
-## Base image (`prepare`)
+## AgentBox runtime image
 
-islo boxes boot from islo's default image or `ISLO_IMAGE`. Like every AgentBox **cloud**
-provider, a full `agentbox create` needs the AgentBox runtime (`agentbox-ctl`, node, the agents)
-present in the box — the built-in providers bake this via a `prepare` step. For v0 point
-`ISLO_IMAGE` at an islo-hosted image that carries the runtime; native base-image baking
-(`prepare`) and no-SSH `buildAttach` are planned follow-ups. The `CloudBackend` sandbox
-lifecycle itself is complete.
+islo currently rejects large container images with `503 RESOURCE_UNAVAILABLE`; the stock
+AgentBox image is about 1.3 GB compressed and does not boot. This repository therefore publishes
+a slim runtime image built from [`runtime/Dockerfile`](./runtime/Dockerfile). It contains Node,
+git, tmux, sudo, rsync, and the version-matched `agentbox-ctl`, without the VNC/browser stack.
+
+```bash
+export ISLO_IMAGE=ghcr.io/zozo123/agentbox-islo-runtime:0.24.6
+agentbox create --provider islo --no-vnc
+```
+
+Use AgentBox 0.24.6 or newer. It includes the cloud fixes for mount-safe `/workspace` seeding,
+numeric-owner-safe tar extraction, and optional daemon spawn failures found during the islo live
+test. Until the slim image grows a VNC stack that remains below islo's image cap, `--no-vnc` is
+required.
+
+Custom images must include a `vscode` user (uid 1000) with passwordless sudo, Node, git, tmux,
+curl, CA certificates, procps, OpenSSH client, rsync, and `agentbox-ctl`. Keep the compressed image
+comfortably below 1 GB. Native `agentbox prepare --provider islo` remains a follow-up; `ISLO_IMAGE`
+is the explicit base-image selection today.
+
+## Platform behavior
+
+- A recently deleted sandbox name can remain reserved while `get` and `list` already report it
+  absent. The plugin turns islo's generic create-time 503 into guidance to choose a fresh name or
+  wait; the same error also calls out an unavailable or oversized custom image.
+- A workload-heavy paused sandbox can take 5–7 minutes to become resumable while archival state
+  settles. The plugin retries this idempotent operation for roughly eight minutes before returning
+  an actionable error.
+- New public share URLs can return 404 for about 10 seconds while edge state propagates. AgentBox's
+  poller absorbs this during service readiness.
 
 ## Develop
 
 ```bash
 npm install        # runs `prepare` → builds dist via tsup
-npm run typecheck
-npm run build
+npm run check      # typecheck + unit tests + build
+
+# Build the same slim image published by GitHub Actions
+docker build -f runtime/Dockerfile -t agentbox-islo-runtime:local .
 ```
 
 ## Support

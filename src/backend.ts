@@ -25,6 +25,8 @@ import type {
   CloudSandboxSummary,
   CloudState,
 } from '@madarco/agentbox-provider-sdk';
+import { UserFacingError } from '@madarco/agentbox-provider-sdk';
+import { parseRcSentinel, wrapWithRcSentinel } from './exec-sentinel.js';
 import {
   computeBaseUrl,
   getClient,
@@ -34,6 +36,7 @@ import {
   isRetriable,
   mapState,
   sleep,
+  statusCodeOf,
   withRetry,
 } from './islo.js';
 
@@ -46,6 +49,19 @@ const DEFAULT_EXEC_TIMEOUT_MS = 300_000; // 5 min per exec, matches e2b/daytona
 const EXEC_POLL_INTERVAL_MS = 750;
 const PROVISION_READY_TIMEOUT_MS = 180_000;
 const SHARE_TTL_SECONDS = 24 * 60 * 60;
+const RESUME_BACKOFF_MS = [
+  5_000,
+  10_000,
+  20_000,
+  30_000,
+  45_000,
+  60_000,
+  60_000,
+  60_000,
+  60_000,
+  60_000,
+  60_000,
+] as const;
 
 function sandboxes() {
   return getClient().sandboxes;
@@ -70,16 +86,28 @@ export const isloBackend: CloudBackend = {
     const diskGb = req.resources?.disk;
 
     // create is billable / non-idempotent → do NOT retry it.
-    await sandboxes().createSandbox({
-      name,
-      ...(image ? { image } : {}),
-      ...(req.snapshot ? { snapshot_name: req.snapshot } : {}),
-      ...(vcpus ? { vcpus } : {}),
-      ...(memoryMb ? { memory_mb: memoryMb } : {}),
-      ...(diskGb ? { disk_gb: diskGb } : {}),
-      ...(req.env ? { env: req.env } : {}),
-      internet_enabled: true,
-    });
+    try {
+      await sandboxes().createSandbox({
+        name,
+        ...(image ? { image } : {}),
+        ...(req.snapshot ? { snapshot_name: req.snapshot } : {}),
+        ...(vcpus ? { vcpus } : {}),
+        ...(memoryMb ? { memory_mb: memoryMb } : {}),
+        ...(diskGb ? { disk_gb: diskGb } : {}),
+        ...(req.env ? { env: req.env } : {}),
+        internet_enabled: true,
+      });
+    } catch (err) {
+      if (statusCodeOf(err) === 503) {
+        const imageHint = image
+          ? ` The selected image (${image}) may also be unavailable or above islo's image-size limit.`
+          : '';
+        throw new UserFacingError(
+          `islo could not create sandbox "${name}". A recently deleted sandbox name remains reserved while deletion settles; retry with a new name or wait before reusing it.${imageHint}`,
+        );
+      }
+      throw err;
+    }
 
     await waitUntilRunning(name, req.onLog);
     return { sandboxId: name };
@@ -142,7 +170,20 @@ export const isloBackend: CloudBackend = {
     // wait until it is actually running before handing the box back to callers
     // (which will immediately exec into it).
     if ((await fetchState(h.sandboxId)) === 'running') return;
-    await withRetry('resume', () => sandboxes().resumeSandbox({ sandbox_name: h.sandboxId }));
+    try {
+      await withRetry(
+        'resume',
+        () => sandboxes().resumeSandbox({ sandbox_name: h.sandboxId }),
+        { backoffMs: RESUME_BACKOFF_MS },
+      );
+    } catch (err) {
+      if (isRetriable(err)) {
+        throw new UserFacingError(
+          `islo sandbox "${h.sandboxId}" is still settling after pause and could not be resumed yet. Retry shortly; its state is preserved.`,
+        );
+      }
+      throw err;
+    }
     await waitUntilRunning(h.sandboxId);
   },
 
@@ -163,11 +204,12 @@ export const isloBackend: CloudBackend = {
 
   async exec(h: CloudHandle, cmd: string, opts?: CloudExecOptions): Promise<CloudExecResult> {
     const timeoutMs = opts?.attemptTimeoutMs ?? DEFAULT_EXEC_TIMEOUT_MS;
+    const wrapped = wrapWithRcSentinel(cmd);
     const startExec = () =>
       sandboxes().execInSandbox({
         sandbox_name: h.sandboxId,
         // non-login shell: avoids /etc/profile motd/clear sequences polluting stdout
-        command: ['bash', '-c', cmd],
+        command: ['bash', '-c', wrapped.command],
         ...(opts?.env ? { env: opts.env } : {}),
         ...(opts?.user ? { user: opts.user } : {}),
         ...(opts?.cwd ? { workdir: opts.cwd } : {}),
@@ -179,7 +221,7 @@ export const isloBackend: CloudBackend = {
     // poll-phase transients internally instead. `noRetry` disables even the start
     // retry for a command that isn't safe to re-issue at all.
     const started = opts?.noRetry ? await startExec() : await withRetry('exec', startExec);
-    return pollExec(h.sandboxId, started.exec_id, timeoutMs);
+    return pollExec(h.sandboxId, started.exec_id, timeoutMs, wrapped.sentinel);
   },
 
   async uploadFile(h: CloudHandle, localPath: string, remotePath: string): Promise<void> {
@@ -221,20 +263,12 @@ export const isloBackend: CloudBackend = {
   },
 
   async previewUrl(h: CloudHandle, port: number): Promise<CloudPreviewUrl> {
-    const shares = getClient().shares;
-    // Reuse a live share for this port so the host poller doesn't mint a new one
-    // on every probe; only create when none is active.
-    try {
-      const existing = await shares.listShares({ sandbox_name: h.sandboxId });
-      const live = existing.find((s) => s.port === port && !isExpired(s.expires_at));
-      if (live) return { url: live.url };
-    } catch {
-      // listing is best-effort; fall through to create
-    }
-    const created = await withRetry('createShare', () =>
-      shares.createShare({ sandbox_name: h.sandboxId, port, ttl_seconds: SHARE_TTL_SECONDS }),
-    );
-    return { url: created.url };
+    return previewUrl(h, port);
+  },
+
+  async signedPreviewUrl(h: CloudHandle, port: number): Promise<CloudPreviewUrl> {
+    // Islo shares are already public HTTPS URLs and require no header token.
+    return previewUrl(h, port);
   },
 
   async refreshPreviewUrl(h: CloudHandle, port: number): Promise<CloudPreviewUrl> {
@@ -293,6 +327,7 @@ async function pollExec(
   sandboxName: string,
   execId: string,
   timeoutMs: number,
+  sentinel: string,
 ): Promise<CloudExecResult> {
   const deadline = Date.now() + timeoutMs + 15_000; // grace over the in-box cap
   for (;;) {
@@ -309,11 +344,19 @@ async function pollExec(
     const done = r.exit_code !== null && r.exit_code !== undefined;
     const terminal =
       done || /(complete|exit|finish|done|fail|error|timeout|kill|cancel)/i.test(r.status);
-    if (terminal) {
+    const sentinelResult = parseRcSentinel(r.stdout, sentinel);
+    if (terminal || sentinelResult) {
       if (r.truncated) {
         process.stderr.write(
           `[islo] exec ${execId} output was truncated by the platform cap — downstream parsing may see partial data\n`,
         );
+      }
+      if (sentinelResult) {
+        return {
+          exitCode: sentinelResult.exitCode,
+          stdout: sentinelResult.stdout,
+          stderr: r.stderr,
+        };
       }
       return {
         exitCode: r.exit_code ?? (r.status.toLowerCase() === 'completed' ? 0 : 1),
@@ -328,6 +371,23 @@ async function pollExec(
     }
     await sleep(EXEC_POLL_INTERVAL_MS);
   }
+}
+
+async function previewUrl(h: CloudHandle, port: number): Promise<CloudPreviewUrl> {
+  const shares = getClient().shares;
+  // Reuse a live share for this port so the host poller doesn't mint a new one
+  // on every probe; only create when none is active.
+  try {
+    const existing = await shares.listShares({ sandbox_name: h.sandboxId });
+    const live = existing.find((s) => s.port === port && !isExpired(s.expires_at));
+    if (live) return { url: live.url };
+  } catch {
+    // listing is best-effort; fall through to create
+  }
+  const created = await withRetry('createShare', () =>
+    shares.createShare({ sandbox_name: h.sandboxId, port, ttl_seconds: SHARE_TTL_SECONDS }),
+  );
+  return { url: created.url };
 }
 
 async function fileFetch(

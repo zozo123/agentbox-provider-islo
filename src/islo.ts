@@ -47,7 +47,7 @@ export function isNotFound(err: unknown): boolean {
   return typeof e.message === 'string' && /\b404\b|not\s+found/i.test(e.message);
 }
 
-function statusCodeOf(err: unknown): number | undefined {
+export function statusCodeOf(err: unknown): number | undefined {
   const e = err as { statusCode?: number; status?: number } | undefined;
   return e?.statusCode ?? e?.status;
 }
@@ -75,16 +75,25 @@ export function isRetriable(err: unknown): boolean {
 
 const BACKOFF_MS = [500, 1500, 3000];
 
+export interface RetryOptions {
+  backoffMs?: readonly number[];
+}
+
 /** Retry a transient-failing op with bounded exponential-ish backoff. */
-export async function withRetry<T>(label: string, fn: () => Promise<T>): Promise<T> {
+export async function withRetry<T>(
+  label: string,
+  fn: () => Promise<T>,
+  opts: RetryOptions = {},
+): Promise<T> {
+  const backoffMs = opts.backoffMs ?? BACKOFF_MS;
   let lastErr: unknown;
-  for (let attempt = 0; attempt <= BACKOFF_MS.length; attempt++) {
+  for (let attempt = 0; attempt <= backoffMs.length; attempt++) {
     try {
       return await fn();
     } catch (err) {
       lastErr = err;
-      if (attempt === BACKOFF_MS.length || !isRetriable(err)) break;
-      const delay = BACKOFF_MS[attempt];
+      if (attempt === backoffMs.length || !isRetriable(err)) break;
+      const delay = backoffMs[attempt];
       process.stderr.write(
         `[islo-retry] ${label} attempt ${String(attempt + 1)} failed, retrying in ${String(delay)}ms\n`,
       );
