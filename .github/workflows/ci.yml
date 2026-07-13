@@ -16,4 +16,6 @@ jobs:
       # `npm install` runs the `prepare` script, which builds dist via tsup.
       - run: npm install
       - run: npm run typecheck
+      - run: npm test
       - run: npm run build
+      - run: npm pack --dry-run

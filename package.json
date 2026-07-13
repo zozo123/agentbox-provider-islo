@@ -20,6 +20,9 @@
     "microvm"
   ],
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "author": "Yossi Eliaz",
   "repository": {
     "type": "git",
@@ -36,8 +39,11 @@
   "scripts": {
     "build": "tsup src/index.ts --format esm --target node20 --no-splitting",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "check": "npm run typecheck && npm test && npm run build",
     "clean": "rm -rf dist .turbo",
-    "prepare": "npm run build"
+    "prepare": "npm run build",
+    "prepublishOnly": "npm run check"
   },
   "files": [
     "dist",
@@ -51,6 +57,7 @@
   "devDependencies": {
     "@types/node": "^22.10.1",
     "tsup": "^8.3.5",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vitest": "^4.1.10"
   }
 }
