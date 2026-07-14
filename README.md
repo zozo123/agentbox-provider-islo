@@ -23,7 +23,7 @@ npm i -g github:zozo123/agentbox-provider-islo
 agentbox plugin add agentbox-provider-islo
 ```
 
-`agentbox plugin list` should then show `islo … (SDK v1)`.
+`agentbox plugin list` should then show `islo … (SDK v2)`.
 
 ## Credentials
 
@@ -69,8 +69,10 @@ agentbox create --provider islo --no-vnc
 
 Use AgentBox 0.24.6 or newer. It includes the cloud fixes for mount-safe `/workspace` seeding,
 numeric-owner-safe tar extraction, and optional daemon spawn failures found during the islo live
-test. Until the slim image grows a VNC stack that remains below islo's image cap, `--no-vnc` is
-required.
+test. Those same fixes reach this plugin through `@madarco/agentbox-provider-sdk` — which inlines
+the cloud lifecycle — so the SDK dependency must be `^2.1.0` or newer; an older SDK re-introduces
+the `/workspace` seeding failure no matter which AgentBox CLI is installed. Until the slim image
+grows a VNC stack that remains below islo's image cap, `--no-vnc` is required.
 
 Custom images must include a `vscode` user (uid 1000) with passwordless sudo, Node, git, tmux,
 curl, CA certificates, procps, OpenSSH client, rsync, and `agentbox-ctl`. Keep the compressed image
