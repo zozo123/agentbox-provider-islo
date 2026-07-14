@@ -10,7 +10,7 @@
     }
   },
   "agentbox": {
-    "providerApiVersion": 1
+    "providerApiVersion": 2
   },
   "keywords": [
     "agentbox",
@@ -52,7 +52,7 @@
   ],
   "dependencies": {
     "@islo-labs/sdk": "^0.0.28",
-    "@madarco/agentbox-provider-sdk": "^1"
+    "@madarco/agentbox-provider-sdk": "^2.1.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.1",
