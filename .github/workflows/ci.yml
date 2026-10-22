@@ -13,6 +13,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      # Node 22 bundles npm 10, whose arborist crashes ("Cannot read properties
+      # of null (reading 'edgesOut')") resolving the optional peer sets of the
+      # current vite/vitest releases. There is no lockfile, so use npm 11.
+      - run: npm install -g npm@11
       # `npm install` runs the `prepare` script, which builds dist via tsup.
       - run: npm install
       - run: npm run typecheck
