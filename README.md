@@ -23,7 +23,7 @@ npm i -g github:zozo123/agentbox-provider-islo
 agentbox plugin add agentbox-provider-islo
 ```
 
-`agentbox plugin list` should then show `islo … (SDK v2)`.
+`agentbox plugin list` should then show `islo … (SDK v4)`.
 
 ## Credentials
 

@@ -1,6 +1,6 @@
 {
   "name": "agentbox-provider-islo",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "islo.dev sandbox provider plugin for AgentBox — `agentbox create --provider islo` on islo microVMs, built on @madarco/agentbox-provider-sdk + @islo-labs/sdk.",
   "type": "module",
   "main": "./dist/index.js",
@@ -10,7 +10,7 @@
     }
   },
   "agentbox": {
-    "providerApiVersion": 2
+    "providerApiVersion": 4
   },
   "keywords": [
     "agentbox",
@@ -52,7 +52,7 @@
   ],
   "dependencies": {
     "@islo-labs/sdk": "^0.0.28",
-    "@madarco/agentbox-provider-sdk": "^2.1.0"
+    "@madarco/agentbox-provider-sdk": "^4"
   },
   "devDependencies": {
     "@types/node": "^22.10.1",
