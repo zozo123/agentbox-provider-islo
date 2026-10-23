@@ -1,8 +1,16 @@
 # agentbox-provider-islo
 
-An [AgentBox](https://agent-box.sh) **provider plugin** for [islo.dev](https://islo.dev) —
-run your agents on islo microVMs with `agentbox create --provider islo`. Built only on
-[`@madarco/agentbox-provider-sdk`](https://www.npmjs.com/package/@madarco/agentbox-provider-sdk)
+A community [AgentBox](https://agent-box.sh) provider plugin for running AgentBox agent sandboxes
+on [islo.dev](https://islo.dev) microVMs with `agentbox create --provider islo`.
+
+**Status:** npm `latest` is 0.1.0 (provider SDK v2). `main` is 0.2.0, built against provider
+SDK v4, which AgentBox 0.30.0 and later require; install it from GitHub until 0.2.0 is on npm.
+The live end-to-end check described below was run on the 0.1.0 build (provider SDK v2, AgentBox
+0.24.6); the 0.2.0 build passes typecheck, unit tests, and build. Maintained by
+[Yossi Eliaz](https://yossieliaz.netlify.app/).
+
+AgentBox and [`@madarco/agentbox-provider-sdk`](https://www.npmjs.com/package/@madarco/agentbox-provider-sdk)
+are by [Marco D'Alia](https://github.com/madarco/agentbox). The plugin is built only on that SDK
 and the official [`@islo-labs/sdk`](https://www.npmjs.com/package/@islo-labs/sdk).
 
 It's a thin [`CloudBackend`](https://agent-box.sh/docs/build-a-provider) over the islo SDK,
@@ -14,16 +22,18 @@ file transfer.
 ## Install
 
 ```bash
-# from npm
-npm i -g agentbox-provider-islo
+# from source: 0.2.0, provider SDK v4 (npm builds it via the `prepare` script)
+npm i -g github:zozo123/agentbox-provider-islo
 agentbox plugin add agentbox-provider-islo
 
-# …or straight from source (npm builds it via the `prepare` script)
-npm i -g github:zozo123/agentbox-provider-islo
+# …or from npm: 0.1.0, provider SDK v2
+npm i -g agentbox-provider-islo
 agentbox plugin add agentbox-provider-islo
 ```
 
-`agentbox plugin list` should then show `islo … (SDK v4)`.
+From npm you get 0.1.0 (provider SDK v2), which AgentBox 0.30.0 and later refuse at
+`agentbox plugin add`; install from GitHub for the SDK v4 build (0.2.0). After a GitHub install,
+`agentbox plugin list` should show `islo … (SDK v4)`.
 
 ## Credentials
 
