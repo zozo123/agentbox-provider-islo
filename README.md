@@ -1,17 +1,17 @@
 # agentbox-provider-islo
 
-A community [AgentBox](https://agent-box.sh) provider plugin for running AgentBox agent sandboxes
-on [islo.dev](https://islo.dev) microVMs with `agentbox create --provider islo`.
+A community [AgentBox](https://agent-box.sh) provider plugin that runs AgentBox sandboxes on
+[islo.dev](https://islo.dev) microVMs, via `agentbox create --provider islo`.
 
 **Status:** npm `latest` is 0.1.0 (provider SDK v2). `main` is 0.2.0, built against provider
 SDK v4, which AgentBox 0.30.0 and later require; install it from GitHub until 0.2.0 is on npm.
-The live end-to-end check described below was run on the 0.1.0 build (provider SDK v2, AgentBox
-0.24.6); the 0.2.0 build passes typecheck, unit tests, and build. Maintained by
+The live end-to-end checks described below were run on 0.1.0 builds (provider SDK v1, then
+v2.1.0); the 0.2.0 build passes typecheck, unit tests, and build. Maintained by
 [Yossi Eliaz](https://yossieliaz.netlify.app/).
 
 AgentBox and [`@madarco/agentbox-provider-sdk`](https://www.npmjs.com/package/@madarco/agentbox-provider-sdk)
-are by [Marco D'Alia](https://github.com/madarco/agentbox). The plugin is built only on that SDK
-and the official [`@islo-labs/sdk`](https://www.npmjs.com/package/@islo-labs/sdk).
+are by Marco D'Alia ([madarco/agentbox](https://github.com/madarco/agentbox)). The plugin is built
+only on that SDK and the official [`@islo-labs/sdk`](https://www.npmjs.com/package/@islo-labs/sdk).
 
 It's a thin [`CloudBackend`](https://agent-box.sh/docs/build-a-provider) over the islo SDK,
 composed into a full provider by the SDK's `createCloudProvider` — so the whole lifecycle
